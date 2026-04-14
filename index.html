@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Voxel Animation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            overflow: hidden;
+            background: radial-gradient(ellipse at center, #2a1f1a 0%, #0d0a08 50%, #000000 100%);
+            min-height: 100vh;
+        }
+        
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        #preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(ellipse at center, #2a1f1a 0%, #0d0a08 50%, #000000 100%);
+            z-index: 1000;
+            transition: opacity 2s ease-out, visibility 2s ease-out;
+        }
+        
+        #preloader.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+        
+        .pixel-loader {
+            width: 80px;
+            height: 80px;
+            perspective: 200px;
+        }
+        
+        .pixel-cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            animation: rotateCube 3s infinite ease-in-out;
+        }
+        
+        .pixel-face {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 2px;
+            padding: 4px;
+        }
+        
+        .pixel-face .pixel {
+            background: #D97757;
+            opacity: 0.9;
+        }
+        
+        .pixel-face .pixel:nth-child(odd) {
+            animation: pixelPulse 0.8s infinite alternate;
+        }
+        
+        .pixel-face .pixel:nth-child(even) {
+            animation: pixelPulse 0.8s infinite alternate-reverse;
+        }
+        
+        .pixel-face.front { transform: translateZ(40px); }
+        .pixel-face.back { transform: rotateY(180deg) translateZ(40px); }
+        .pixel-face.right { transform: rotateY(90deg) translateZ(40px); }
+        .pixel-face.left { transform: rotateY(-90deg) translateZ(40px); }
+        .pixel-face.top { transform: rotateX(90deg) translateZ(40px); }
+        .pixel-face.bottom { transform: rotateX(-90deg) translateZ(40px); }
+        
+        @keyframes rotateCube {
+            0%, 100% { transform: rotateX(0deg) rotateY(0deg); }
+            25% { transform: rotateX(90deg) rotateY(90deg); }
+            50% { transform: rotateX(180deg) rotateY(180deg); }
+            75% { transform: rotateX(270deg) rotateY(270deg); }
+        }
+        
+        @keyframes pixelPulse {
+            0% { opacity: 0.4; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="preloader">
+        <div class="pixel-loader">
+            <div class="pixel-cube">
+                <div class="pixel-face front">
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                </div>
+                <div class="pixel-face back">
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                </div>
+                <div class="pixel-face right">
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                </div>
+                <div class="pixel-face left">
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                </div>
+                <div class="pixel-face top">
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                </div>
+                <div class="pixel-face bottom">
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                    <div class="pixel"></div><div class="pixel"></div><div class="pixel"></div><div class="pixel"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="canvas-container"></div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        const SVG_PATH = 'm19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2h-.4L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z';
+        
+        const GRID_SIZE = 80;
+        const VOXEL_SIZE = 0.125;
+        const VOXEL_SPACING = 0.1375;
+        const CLAUDE_ORANGE = new THREE.Color(0xD97757);
+        
+        let scene, camera, renderer, composer;
+        let instancedMesh;
+        let voxelData = [];
+        let clock = new THREE.Clock();
+        let startTime = 0;
+        let uniforms;
+        
+        const vertexShader = `
+            attribute vec3 aOffset;
+            attribute float aAo;
+            attribute float aDelay;
+            attribute float aRandom;
+            
+            uniform float uTime;
+            uniform float uTransitionDuration;
+            uniform float uChaosDuration;
+            
+            varying vec3 vNormal;
+            varying vec3 vPosition;
+            varying float vAo;
+            varying float vSweep;
+            
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+            vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+            
+            float snoise(vec3 v) {
+                const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+                const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+                
+                vec3 i  = floor(v + dot(v, C.yyy));
+                vec3 x0 = v - i + dot(i, C.xxx);
+                
+                vec3 g = step(x0.yzx, x0.xyz);
+                vec3 l = 1.0 - g;
+                vec3 i1 = min(g.xyz, l.zxy);
+                vec3 i2 = max(g.xyz, l.zxy);
+                
+                vec3 x1 = x0 - i1 + C.xxx;
+                vec3 x2 = x0 - i2 + C.yyy;
+                vec3 x3 = x0 - D.yyy;
+                
+                i = mod289(i);
+                vec4 p = permute(permute(permute(
+                    i.z + vec4(0.0, i1.z, i2.z, 1.0))
+                    + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+                    + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+                
+                float n_ = 0.142857142857;
+                vec3 ns = n_ * D.wyz - D.xzx;
+                
+                vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+                
+                vec4 x_ = floor(j * ns.z);
+                vec4 y_ = floor(j - 7.0 * x_);
+                
+                vec4 x = x_ *ns.x + ns.yyyy;
+                vec4 y = y_ *ns.x + ns.yyyy;
+                vec4 h = 1.0 - abs(x) - abs(y);
+                
+                vec4 b0 = vec4(x.xy, y.xy);
+                vec4 b1 = vec4(x.zw, y.zw);
+                
+                vec4 s0 = floor(b0)*2.0 + 1.0;
+                vec4 s1 = floor(b1)*2.0 + 1.0;
+                vec4 sh = -step(h, vec4(0.0));
+                
+                vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+                vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+                
+                vec3 p0 = vec3(a0.xy, h.x);
+                vec3 p1 = vec3(a0.zw, h.y);
+                vec3 p2 = vec3(a1.xy, h.z);
+                vec3 p3 = vec3(a1.zw, h.w);
+                
+                vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+                p0 *= norm.x;
+                p1 *= norm.y;
+                p2 *= norm.z;
+                p3 *= norm.w;
+                
+                vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+                m = m * m;
+                return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+            }
+            
+            float easeOutElastic(float x) {
+                float c4 = (2.0 * 3.14159265359) / 3.0;
+                return x == 0.0 ? 0.0 : x == 1.0 ? 1.0 : pow(2.0, -10.0 * x) * sin((x * 10.0 - 0.75) * c4) + 1.0;
+            }
+            
+            void main() {
+                float chaosTime = uTime;
+                float transitionTime = uTime - uChaosDuration;
+                
+                float chaosRadius = 80.0 + aRandom * 40.0;
+                float chaosAngle1 = aRandom * 62.8318 + chaosTime * 0.3;
+                float chaosAngle2 = aRandom * 31.4159 + chaosTime * 0.2;
+                float chaosAngle3 = aRandom * 94.2477 + chaosTime * 0.15;
+                
+                vec3 chaosPos = vec3(
+                    sin(chaosAngle1) * cos(chaosAngle2) * chaosRadius,
+                    sin(chaosAngle2) * sin(chaosAngle3) * chaosRadius * 0.8,
+                    cos(chaosAngle1) * chaosRadius
+                );
+                
+                chaosPos += vec3(
+                    snoise(vec3(aRandom * 10.0, chaosTime * 0.5, 0.0)) * 15.0,
+                    snoise(vec3(aRandom * 10.0, chaosTime * 0.5, 10.0)) * 15.0,
+                    snoise(vec3(aRandom * 10.0, chaosTime * 0.5, 20.0)) * 15.0
+                );
+                
+                float delay = aDelay * uTransitionDuration * 0.8;
+                float progress = clamp((transitionTime - delay) / max(uTransitionDuration * 0.5, 0.001), 0.0, 1.0);
+                progress = easeOutElastic(progress);
+                
+                vec3 targetPos = aOffset;
+                
+                float noiseScale = 0.3;
+                float noiseTime = uTime * 0.5;
+                float breathNoise = snoise(vec3(targetPos.xz * noiseScale, noiseTime)) * 0.15;
+                float waveNoise = snoise(vec3(targetPos.yz * noiseScale, noiseTime * 0.7)) * 0.1;
+                
+                if (progress > 0.95) {
+                    targetPos.x += breathNoise;
+                    targetPos.z += waveNoise;
+                }
+                
+                vec3 finalPos = mix(chaosPos, targetPos, progress);
+                
+                vNormal = normalize(normalMatrix * normal);
+                vPosition = (modelViewMatrix * vec4(finalPos, 1.0)).xyz;
+                vAo = aAo;
+                
+                float sweepWave = sin(finalPos.x * 2.0 + finalPos.y * 1.5 + uTime * 3.0);
+                vSweep = smoothstep(-0.8, 1.0, sweepWave) * progress;
+                
+                vec3 worldPos = finalPos + position * 0.125;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(worldPos, 1.0);
+            }
+        `;
+        
+        const fragmentShader = `
+            uniform vec3 uColor;
+            uniform vec3 uLightMain;
+            uniform vec3 uLightFill;
+            uniform vec3 uLightRim;
+            
+            varying vec3 vNormal;
+            varying vec3 vPosition;
+            varying float vAo;
+            varying float vSweep;
+            
+            void main() {
+                vec3 normal = normalize(vNormal);
+                vec3 viewDir = normalize(-vPosition);
+                
+                vec3 lightDirMain = normalize(uLightMain - vPosition);
+                vec3 lightDirFill = normalize(uLightFill - vPosition);
+                vec3 lightDirRim = normalize(uLightRim - vPosition);
+                
+                float diffMain = max(dot(normal, lightDirMain), 0.0);
+                float diffFill = max(dot(normal, lightDirFill), 0.0) * 0.4;
+                
+                vec3 halfDirMain = normalize(lightDirMain + viewDir);
+                float specMain = pow(max(dot(normal, halfDirMain), 0.0), 64.0);
+                
+                float rim = pow(1.0 - max(dot(viewDir, normal), 0.0), 3.0);
+                float rimLight = rim * max(dot(normal, lightDirRim), 0.0);
+                
+                vec3 ambient = uColor * 0.15 * vAo;
+                vec3 diffuse = uColor * (diffMain + diffFill) * vAo;
+                vec3 specular = vec3(1.0) * specMain * 0.5;
+                vec3 rimColor = uColor * rimLight * 0.6;
+                
+                vec3 sweepGlow = uColor * vSweep * 1.5;
+                
+                vec3 finalColor = ambient + diffuse + specular + rimColor + sweepGlow;
+                
+                gl_FragColor = vec4(finalColor, 1.0);
+            }
+        `;
+
+        function renderSvgToCanvas(pathData, size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            const path = new Path2D(pathData);
+            
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, size, size);
+            
+            ctx.save();
+            const scale = size / 100;
+            ctx.scale(scale, scale);
+            ctx.fillStyle = 'black';
+            ctx.fill(path);
+            ctx.restore();
+            
+            return ctx.getImageData(0, 0, size, size);
+        }
+
+        function computeSDF(imageData, size) {
+            const data = imageData.data;
+            const sdf = new Float32Array(size * size);
+            
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const idx = (y * size + x) * 4;
+                    const isInside = data[idx] < 128;
+                    sdf[y * size + x] = isInside ? -1 : 1;
+                }
+            }
+            
+            for (let iter = 0; iter < 32; iter++) {
+                const newSdf = new Float32Array(size * size);
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        const idx = y * size + x;
+                        let minDist = sdf[idx];
+                        
+                        for (let dy = -1; dy <= 1; dy++) {
+                            for (let dx = -1; dx <= 1; dx++) {
+                                const nx = x + dx;
+                                const ny = y + dy;
+                                if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                                    const nIdx = ny * size + nx;
+                                    const dist = Math.sqrt(dx * dx + dy * dy);
+                                    const sign = sdf[idx] < 0 ? -1 : 1;
+                                    if (sdf[nIdx] * sign < 0) {
+                                        minDist = sign * Math.min(Math.abs(minDist), dist);
+                                    }
+                                }
+                            }
+                        }
+                        newSdf[idx] = minDist;
+                    }
+                }
+                for (let i = 0; i < sdf.length; i++) {
+                    sdf[i] = newSdf[i];
+                }
+            }
+            
+            return sdf;
+        }
+
+        function computeBeveledDepth(sdf, size, x, y) {
+            const idx = y * size + x;
+            const dist = sdf[idx];
+            
+            if (dist > 0) return 0;
+            
+            const absDist = Math.abs(dist);
+            const maxDepth = 12;
+            const edgeWidth = 4;
+            
+            if (absDist < edgeWidth) {
+                return maxDepth * (1 - absDist / edgeWidth);
+            }
+            return maxDepth;
+        }
+
+        function generateVoxelShell(sdf, size) {
+            const voxels = [];
+            const halfSize = size / 2;
+            
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const idx = y * size + x;
+                    if (sdf[idx] < 0) {
+                        const depth = computeBeveledDepth(sdf, size, x, y);
+                        
+                        for (let z = 0; z <= Math.floor(depth); z++) {
+                            const isTop = z === Math.floor(depth);
+                            const isBottom = z === 0;
+                            
+                            let hasExposedSide = false;
+                            for (let dx = -1; dx <= 1; dx++) {
+                                for (let dy = -1; dy <= 1; dy++) {
+                                    if (dx === 0 && dy === 0) continue;
+                                    const nx = x + dx;
+                                    const ny = y + dy;
+                                    if (nx >= 0 && nx < size && ny >= 0 && ny < size) {
+                                        const nIdx = ny * size + nx;
+                                        if (sdf[nIdx] >= 0) {
+                                            hasExposedSide = true;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (isTop || isBottom || hasExposedSide) {
+                                const px = (x - halfSize) * VOXEL_SPACING;
+                                const py = (halfSize - y) * VOXEL_SPACING;
+                                const pz = z * VOXEL_SPACING;
+                                
+                                let ao = 1.0;
+                                const edgeDist = Math.abs(sdf[idx]);
+                                if (edgeDist < 3) {
+                                    ao = 0.6 + 0.4 * (edgeDist / 3);
+                                }
+                                if (z < 2) {
+                                    ao *= 0.7 + 0.3 * (z / 2);
+                                }
+                                
+                                voxels.push({
+                                    position: new THREE.Vector3(px, py, pz),
+                                    ao: ao,
+                                    depth: z
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return voxels;
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 42);
+            
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true, 
+                alpha: true,
+                powerPreference: 'high-performance'
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            
+            const imageData = renderSvgToCanvas(SVG_PATH, GRID_SIZE);
+            const sdf = computeSDF(imageData, GRID_SIZE);
+            voxelData = generateVoxelShell(sdf, GRID_SIZE);
+            
+            console.log('Generated voxels:', voxelData.length);
+            
+            if (voxelData.length === 0) {
+                console.error('No voxels generated!');
+                return;
+            }
+            
+            createInstancedMesh();
+            setupLights();
+            setupPostProcessing();
+            
+            startTime = clock.getElapsedTime();
+            
+            setTimeout(() => {
+                document.getElementById('preloader').classList.add('hidden');
+            }, 2500);
+            
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function createInstancedMesh() {
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const count = voxelData.length;
+            
+            const offsets = new Float32Array(count * 3);
+            const aos = new Float32Array(count);
+            const delays = new Float32Array(count);
+            const randoms = new Float32Array(count);
+            
+            const center = new THREE.Vector3();
+            voxelData.forEach((v) => {
+                center.add(v.position);
+            });
+            center.divideScalar(count);
+            
+            voxelData.forEach((v, i) => {
+                offsets[i * 3] = v.position.x;
+                offsets[i * 3 + 1] = v.position.y;
+                offsets[i * 3 + 2] = v.position.z;
+                aos[i] = v.ao;
+                
+                const dist = v.position.distanceTo(center);
+                delays[i] = dist / 15;
+                randoms[i] = Math.random();
+            });
+            
+            geometry.setAttribute('aOffset', new THREE.InstancedBufferAttribute(offsets, 3));
+            geometry.setAttribute('aAo', new THREE.InstancedBufferAttribute(aos, 1));
+            geometry.setAttribute('aDelay', new THREE.InstancedBufferAttribute(delays, 1));
+            geometry.setAttribute('aRandom', new THREE.InstancedBufferAttribute(randoms, 1));
+            
+            uniforms = {
+                uTime: { value: 0 },
+                uTransitionDuration: { value: 5.0 },
+                uChaosDuration: { value: 3.0 },
+                uColor: { value: CLAUDE_ORANGE },
+                uLightMain: { value: new THREE.Vector3(30, 40, 30) },
+                uLightFill: { value: new THREE.Vector3(-25, 15, 20) },
+                uLightRim: { value: new THREE.Vector3(0, -20, 35) }
+            };
+            
+            const material = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: vertexShader,
+                fragmentShader: fragmentShader,
+                side: THREE.DoubleSide
+            });
+            
+            instancedMesh = new THREE.InstancedMesh(geometry, material, count);
+            
+            const dummy = new THREE.Object3D();
+            for (let i = 0; i < count; i++) {
+                dummy.position.set(0, 0, 0);
+                dummy.updateMatrix();
+                instancedMesh.setMatrixAt(i, dummy.matrix);
+            }
+            
+            scene.add(instancedMesh);
+        }
+
+        function setupLights() {
+            const ambientLight = new THREE.AmbientLight(0x331100, 0.3);
+            scene.add(ambientLight);
+        }
+
+        function setupPostProcessing() {
+            composer = new EffectComposer(renderer);
+            
+            const renderPass = new RenderPass(scene, camera);
+            composer.addPass(renderPass);
+            
+            const bloomPass = new UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth, window.innerHeight),
+                0.8,
+                0.4,
+                0.85
+            );
+            composer.addPass(bloomPass);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const elapsed = clock.getElapsedTime() - startTime;
+            
+            if (uniforms) {
+                uniforms.uTime.value = elapsed;
+            }
+            
+            const orbitRadius = 42;
+            const orbitSpeed = 0.15;
+            const verticalAmplitude = 3;
+            const verticalSpeed = 0.3;
+            
+            const angle = elapsed * orbitSpeed;
+            camera.position.x = Math.sin(angle) * orbitRadius;
+            camera.position.z = Math.cos(angle) * orbitRadius;
+            camera.position.y = Math.sin(elapsed * verticalSpeed) * verticalAmplitude;
+            
+            camera.lookAt(0, 0, 0);
+            
+            composer.render();
+        }
+
+        init();
+    </script>
+</body>
+</html>
