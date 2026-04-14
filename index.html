@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Voxel Animation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: radial-gradient(ellipse at center, #2a2520 0%, #0d0c0a 50%, #000000 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            opacity: 0;
+            transition: opacity 2s ease-out;
+        }
+
+        #canvas-container.ready {
+            opacity: 1;
+        }
+
+        /* 3D Voxel Preloader */
+        #preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 800px;
+            z-index: 100;
+            background: radial-gradient(ellipse at center, #2a2520 0%, #0d0c0a 50%, #000000 100%);
+            transition: opacity 1.5s ease-out, visibility 1.5s ease-out;
+        }
+
+        #preloader.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .voxel-cube {
+            width: 60px;
+            height: 60px;
+            position: relative;
+            transform-style: preserve-3d;
+            animation: rotate3d 2s infinite linear;
+        }
+
+        .voxel-face {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #D97757 0%, #B85C3D 100%);
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+
+        .voxel-face.front { transform: translateZ(30px); }
+        .voxel-face.back { transform: rotateY(180deg) translateZ(30px); background: linear-gradient(135deg, #8B3D2A 0%, #5C2820 100%); }
+        .voxel-face.right { transform: rotateY(90deg) translateZ(30px); background: linear-gradient(135deg, #B85C3D 0%, #8B3D2A 100%); }
+        .voxel-face.left { transform: rotateY(-90deg) translateZ(30px); background: linear-gradient(135deg, #B85C3D 0%, #8B3D2A 100%); }
+        .voxel-face.top { transform: rotateX(90deg) translateZ(30px); background: linear-gradient(135deg, #E08A6C 0%, #D97757 100%); }
+        .voxel-face.bottom { transform: rotateX(-90deg) translateZ(30px); background: linear-gradient(135deg, #5C2820 0%, #3D1A15 100%); }
+
+        @keyframes rotate3d {
+            0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+            25% { transform: rotateX(90deg) rotateY(90deg) rotateZ(0deg); }
+            50% { transform: rotateX(180deg) rotateY(180deg) rotateZ(90deg); }
+            75% { transform: rotateX(270deg) rotateY(270deg) rotateZ(180deg); }
+            100% { transform: rotateX(360deg) rotateY(360deg) rotateZ(360deg); }
+        }
+
+        .loading-text {
+            position: absolute;
+            bottom: 35%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #D97757;
+            font-size: 12px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            opacity: 0.6;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
+        }
+    </style>
+</head>
+<body>
+    <div id="preloader">
+        <div class="voxel-cube">
+            <div class="voxel-face front"></div>
+            <div class="voxel-face back"></div>
+            <div class="voxel-face right"></div>
+            <div class="voxel-face left"></div>
+            <div class="voxel-face top"></div>
+            <div class="voxel-face bottom"></div>
+        </div>
+        <div class="loading-text">Loading</div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // SVG Path for Claude Logo
+        const SVG_PATH = "m19.6 66.5 19.7-11 .3-1-.3-.5h-1l-3.3-.2-11.2-.3L14 53l-9.5-.5-2.4-.5L0 49l.2-1.5 2-1.3 2.9.2 6.3.5 9.5.6 6.9.4L38 49.1h1.6l.2-.7-.5-.4-.4-.4L29 41l-10.6-7-5.6-4.1-3-2-1.5-2-.6-4.2 2.7-3 3.7.3.9.2 3.7 2.9 8 6.1L37 36l1.5 1.2.6-.4.1-.3-.7-1.1L33 25l-6-10.4-2.7-4.3-.7-2.6c-.3-1-.4-2-.4-3l3-4.2L28 0l4.2.6L33.8 2l2.6 6 4.1 9.3L47 29.9l2 3.8 1 3.4.3 1h.7v-.5l.5-7.2 1-8.7 1-11.2.3-3.2 1.6-3.8 3-2L61 2.6l2 2.9-.3 1.8-1.1 7.7L59 27.1l-1.5 8.2h.9l1-1.1 4.1-5.4 6.9-8.6 3-3.5L77 13l2.3-1.8h4.3l3.1 4.7-1.4 4.9-4.4 5.6-3.7 4.7-5.3 7.1-3.2 5.7.3.4h.7l12-2.6 6.4-1.1 7.6-1.3 3.5 1.6.4 1.6-1.4 3.4-8.2 2-9.6 2-14.3 3.3-.2.1.2.3 6.4.6 2.8.2h6.8l12.6 1 3.3 2 1.9 2.7-.3 2-5.1 2.6-6.8-1.6-16-3.8-5.4-1.3h-.8v.4l4.6 4.5 8.3 7.5L89 80.1l.5 2.4-1.3 2-1.4-.2-9.2-7-3.6-3-8-6.8h-.5v.7l1.8 2.7 9.8 14.7.5 4.5-.7 1.4-2.6 1-2.7-.6-5.8-8-6-9-4.7-8.2-.5.4-2.9 30.2-1.3 1.5-3 1.2-2.5-2-1.4-3 1.4-6.2 1.6-8 1.3-6.4 1.2-7.9.7-2.6v-.2H49L43 72l-9 12.3-7.2 7.6-1.7.7-3-1.5.3-2.8L24 86l10-12.8 6-7.9 4-4.6-.1-.5h-.3L17.2 77.4l-4.7.6-2-2 .2-3 1-1 8-5.5Z";
+
+        // Configuration
+        const CONFIG = {
+            voxelSize: 0.12,
+            voxelSpacing: 0.135,
+            gridSize: 80,
+            maxDepth: 4,
+            baseColor: new THREE.Color('#D97757'),
+            bloomStrength: 0.5,
+            bloomRadius: 0.3,
+            bloomThreshold: 0.2,
+            cameraOrbitRadius: 30,
+            cameraOrbitSpeed: 0.00015,
+            cameraVerticalAmplitude: 3,
+            cameraVerticalFrequency: 0.0002,
+            starFieldDuration: 3000,
+            assemblyDuration: 4000
+        };
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.0;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Post-processing
+        const composer = new EffectComposer(renderer);
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+
+        const bloomPass = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            CONFIG.bloomStrength,
+            CONFIG.bloomRadius,
+            CONFIG.bloomThreshold
+        );
+        composer.addPass(bloomPass);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x2a2520, 0.4);
+        scene.add(ambientLight);
+
+        const keyLight = new THREE.DirectionalLight(0xffecd9, 1.2);
+        keyLight.position.set(15, 25, 15);
+        keyLight.castShadow = true;
+        keyLight.shadow.mapSize.width = 2048;
+        keyLight.shadow.mapSize.height = 2048;
+        keyLight.shadow.camera.near = 0.5;
+        keyLight.shadow.camera.far = 100;
+        keyLight.shadow.bias = -0.001;
+        scene.add(keyLight);
+
+        const rimLight = new THREE.SpotLight(0xD97757, 1.5);
+        rimLight.position.set(-25, 5, -25);
+        rimLight.lookAt(0, 0, 0);
+        rimLight.penumbra = 0.5;
+        scene.add(rimLight);
+
+        const fillLight = new THREE.DirectionalLight(0x8a7f75, 0.5);
+        fillLight.position.set(-15, 5, 15);
+        scene.add(fillLight);
+
+        // Parse SVG path with proper scaling
+        function parseSVGPath(pathData) {
+            const canvas = document.createElement('canvas');
+            canvas.width = CONFIG.gridSize;
+            canvas.height = CONFIG.gridSize;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+            // Clear canvas
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, CONFIG.gridSize, CONFIG.gridSize);
+
+            // Get SVG bounds by parsing the path
+            const path = new Path2D(pathData);
+            
+            // Draw at original scale first to measure
+            ctx.save();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fill(path);
+            
+            // Get bounding box by scanning
+            const tempData = ctx.getImageData(0, 0, CONFIG.gridSize, CONFIG.gridSize).data;
+            let minX = CONFIG.gridSize, maxX = 0, minY = CONFIG.gridSize, maxY = 0;
+            
+            for (let y = 0; y < CONFIG.gridSize; y++) {
+                for (let x = 0; x < CONFIG.gridSize; x++) {
+                    const idx = (y * CONFIG.gridSize + x) * 4;
+                    if (tempData[idx] > 100) {
+                        minX = Math.min(minX, x);
+                        maxX = Math.max(maxX, x);
+                        minY = Math.min(minY, y);
+                        maxY = Math.max(maxY, y);
+                    }
+                }
+            }
+            ctx.restore();
+
+            // Clear and redraw with proper scaling
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, CONFIG.gridSize, CONFIG.gridSize);
+
+            // Calculate scale to fit in grid with padding
+            const padding = 4;
+            const svgWidth = 95;
+            const svgHeight = 95;
+            const scaleX = (CONFIG.gridSize - padding * 2) / svgWidth;
+            const scaleY = (CONFIG.gridSize - padding * 2) / svgHeight;
+            const scale = Math.min(scaleX, scaleY);
+            
+            ctx.save();
+            // Center the SVG
+            const offsetX = (CONFIG.gridSize - svgWidth * scale) / 2;
+            const offsetY = (CONFIG.gridSize - svgHeight * scale) / 2;
+            ctx.translate(offsetX, offsetY);
+            ctx.scale(scale, scale);
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fill(path);
+            ctx.restore();
+
+            // Get pixel data
+            const imageData = ctx.getImageData(0, 0, CONFIG.gridSize, CONFIG.gridSize);
+            const data = imageData.data;
+
+            // Generate voxel positions
+            const voxels = [];
+            const occupied = new Set();
+
+            // Mark occupied cells
+            for (let y = 0; y < CONFIG.gridSize; y++) {
+                for (let x = 0; x < CONFIG.gridSize; x++) {
+                    const idx = (y * CONFIG.gridSize + x) * 4;
+                    if (data[idx] > 100) {
+                        occupied.add(`${x},${y}`);
+                    }
+                }
+            }
+
+            const centerX = CONFIG.gridSize / 2;
+            const centerY = CONFIG.gridSize / 2;
+
+            // Generate voxels with depth
+            for (let y = 0; y < CONFIG.gridSize; y++) {
+                for (let x = 0; x < CONFIG.gridSize; x++) {
+                    if (occupied.has(`${x},${y}`)) {
+                        const dx = x - centerX;
+                        const dy = y - centerY;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
+                        const normalizedDist = Math.min(dist / maxDist, 1);
+
+                        const depth = Math.max(2, Math.floor(CONFIG.maxDepth * (1 - normalizedDist * 0.4)));
+
+                        let neighbors = 0;
+                        for (let ny = Math.max(0, y - 1); ny <= Math.min(CONFIG.gridSize - 1, y + 1); ny++) {
+                            for (let nx = Math.max(0, x - 1); nx <= Math.min(CONFIG.gridSize - 1, x + 1); nx++) {
+                                if (occupied.has(`${nx},${ny}`)) neighbors++;
+                            }
+                        }
+                        const aoFactor = neighbors / 9;
+
+                        for (let z = 0; z < depth; z++) {
+                            const isEdge = !occupied.has(`${x + 1},${y}`) ||
+                                          !occupied.has(`${x - 1},${y}`) ||
+                                          !occupied.has(`${x},${y + 1}`) ||
+                                          !occupied.has(`${x},${y - 1}`);
+                            const isSurface = z === depth - 1 || z === 0 || isEdge;
+                            
+                            if (isSurface) {
+                                voxels.push({
+                                    x: (x - centerX) * CONFIG.voxelSpacing,
+                                    y: (centerY - y) * CONFIG.voxelSpacing,
+                                    z: (z - depth / 2) * CONFIG.voxelSpacing,
+                                    ao: aoFactor,
+                                    gridX: x,
+                                    gridY: y,
+                                    depth: z
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            return { voxels, centerX, centerY };
+        }
+
+        const { voxels } = parseSVGPath(SVG_PATH);
+
+        // Create geometry
+        const geometry = new THREE.BoxGeometry(CONFIG.voxelSize, CONFIG.voxelSize, CONFIG.voxelSize);
+        
+        // Material with custom shader
+        const material = new THREE.MeshStandardMaterial({
+            color: CONFIG.baseColor,
+            roughness: 0.3,
+            metalness: 0.15,
+        });
+
+        // Store uniforms
+        const uniforms = {
+            uTime: { value: 0 },
+            uAssembleProgress: { value: 0 },
+            uStarFieldTime: { value: 0 }
+        };
+
+        // Custom shader injection
+        material.onBeforeCompile = (shader) => {
+            shader.uniforms.uTime = uniforms.uTime;
+            shader.uniforms.uAssembleProgress = uniforms.uAssembleProgress;
+            shader.uniforms.uStarFieldTime = uniforms.uStarFieldTime;
+            
+            // Add attributes and varyings
+            shader.vertexShader = `
+                uniform float uTime;
+                uniform float uAssembleProgress;
+                uniform float uStarFieldTime;
+                attribute vec3 aTargetPos;
+                attribute float aRandom;
+                attribute float aRadialDelay;
+                attribute float aAO;
+                varying float vAO;
+                varying vec3 vWorldPosition;
+                
+                // Elastic ease out
+                float easeOutElastic(float x) {
+                    const float c4 = (2.0 * 3.14159265359) / 3.0;
+                    return x == 0.0 ? 0.0 : x == 1.0 ? 1.0 : pow(2.0, -10.0 * x) * sin((x * 10.0 - 0.75) * c4) + 1.0;
+                }
+                
+                // Simplex 2D noise
+                vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+                
+                float snoise(vec2 v) {
+                    const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                                       -0.577350269189626, 0.024390243902439);
+                    vec2 i  = floor(v + dot(v, C.yy));
+                    vec2 x0 = v - i + dot(i, C.xx);
+                    vec2 i1;
+                    i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+                    vec4 x12 = x0.xyxy + C.xxzz;
+                    x12.xy -= i1;
+                    i = mod(i, 289.0);
+                    vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0))
+                                           + i.x + vec3(0.0, i1.x, 1.0));
+                    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy),
+                                           dot(x12.zw,x12.zw)), 0.0);
+                    m = m*m;
+                    m = m*m;
+                    vec3 x = 2.0 * fract(p * C.www) - 1.0;
+                    vec3 h = abs(x) - 0.5;
+                    vec3 ox = floor(x + 0.5);
+                    vec3 a0 = x - ox;
+                    m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+                    vec3 g;
+                    g.x = a0.x * x0.x + h.x * x0.y;
+                    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+                    return 130.0 * dot(m, g);
+                }
+                
+                ${shader.vertexShader}
+            `;
+
+            // Modify vertex position
+            shader.vertexShader = shader.vertexShader.replace(
+                '#include <begin_vertex>',
+                `
+                #include <begin_vertex>
+                vAO = aAO;
+                
+                // Star field rotation during initial phase
+                float starRotation = uStarFieldTime * 0.5;
+                float chaosRadius = 50.0 + aRandom * 30.0;
+                
+                // Initial chaos position - rotating star field
+                float theta = aRandom * 6.28318 + starRotation;
+                float phi = aRandom * 3.14159 + starRotation * 0.3;
+                vec3 chaosPos = vec3(
+                    chaosRadius * sin(phi) * cos(theta),
+                    chaosRadius * sin(phi) * sin(theta) * 0.6,
+                    chaosRadius * cos(phi)
+                );
+                
+                // Add orbital rotation to star field
+                float orbitAngle = uStarFieldTime * 0.2 + aRandom * 6.28318;
+                float orbitRadius = length(chaosPos.xy);
+                chaosPos.x = cos(orbitAngle) * orbitRadius;
+                chaosPos.y = sin(orbitAngle) * orbitRadius * 0.8;
+                
+                // Assembly animation
+                float delay = aRadialDelay * 0.5;
+                float adjustedProgress = clamp((uAssembleProgress - delay) / max(0.001, 1.0 - delay), 0.0, 1.0);
+                float easedProgress = easeOutElastic(adjustedProgress);
+                
+                // Interpolate
+                vec3 finalPos = mix(chaosPos, aTargetPos, easedProgress);
+                
+                // Idle breathing (only when assembled)
+                if (adjustedProgress > 0.99) {
+                    float breathe = snoise(vec3(aTargetPos.xy * 0.5, uTime * 0.3)) * 0.08;
+                    float wave = sin(uTime * 0.8 + length(aTargetPos.xy) * 0.4) * 0.04;
+                    finalPos.z += breathe + wave;
+                    finalPos.y += sin(uTime * 0.5 + aTargetPos.x * 0.3) * 0.02;
+                }
+                
+                transformed = finalPos;
+                vWorldPosition = finalPos;
+                
+                // Scale animation
+                float scale = mix(0.2, 1.0, easedProgress);
+                transformed *= scale;
+                `
+            );
+
+            // Fragment shader
+            shader.fragmentShader = `
+                varying float vAO;
+                varying vec3 vWorldPosition;
+                uniform float uTime;
+                ${shader.fragmentShader}
+            `;
+
+            shader.fragmentShader = shader.fragmentShader.replace(
+                '#include <color_fragment>',
+                `
+                #include <color_fragment>
+                
+                // Apply AO
+                float aoIntensity = mix(0.7, 1.0, vAO);
+                diffuseColor.rgb *= aoIntensity;
+                
+                // Energy sweep effect
+                float sweep = sin(vWorldPosition.x * 0.4 - uTime * 2.0) * 0.5 + 0.5;
+                float energy = pow(sweep, 3.0) * 0.25;
+                
+                // Add energy glow
+                diffuseColor.rgb += vec3(1.0, 0.75, 0.6) * energy;
+                diffuseColor.rgb *= 1.0 + energy * 0.5;
+                `
+            );
+        };
+
+        // Create instanced mesh
+        const instancedMesh = new THREE.InstancedMesh(geometry, material, voxels.length);
+        instancedMesh.castShadow = true;
+        instancedMesh.receiveShadow = true;
+
+        // Set up instance attributes
+        const targetPositions = new Float32Array(voxels.length * 3);
+        const aoValues = new Float32Array(voxels.length);
+        const randomValues = new Float32Array(voxels.length);
+        const radialDelays = new Float32Array(voxels.length);
+
+        let sumX = 0, sumY = 0;
+        voxels.forEach(v => {
+            sumX += v.x;
+            sumY += v.y;
+        });
+        const avgX = sumX / voxels.length;
+        const avgY = sumY / voxels.length;
+
+        voxels.forEach((voxel, i) => {
+            targetPositions[i * 3] = voxel.x;
+            targetPositions[i * 3 + 1] = voxel.y;
+            targetPositions[i * 3 + 2] = voxel.z;
+            
+            aoValues[i] = voxel.ao;
+            randomValues[i] = Math.random();
+            
+            const dx = voxel.x - avgX;
+            const dy = voxel.y - avgY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            radialDelays[i] = Math.min(dist / 10, 1.0);
+        });
+
+        geometry.setAttribute('aTargetPos', new THREE.InstancedBufferAttribute(targetPositions, 3));
+        geometry.setAttribute('aAO', new THREE.InstancedBufferAttribute(aoValues, 1));
+        geometry.setAttribute('aRandom', new THREE.InstancedBufferAttribute(randomValues, 1));
+        geometry.setAttribute('aRadialDelay', new THREE.InstancedBufferAttribute(radialDelays, 1));
+
+        // Set initial matrices
+        const dummy = new THREE.Object3D();
+        for (let i = 0; i < voxels.length; i++) {
+            dummy.position.set(0, 0, 0);
+            dummy.updateMatrix();
+            instancedMesh.setMatrixAt(i, dummy.matrix);
+        }
+        instancedMesh.instanceMatrix.needsUpdate = true;
+
+        scene.add(instancedMesh);
+
+        // Animation state machine
+        const STATE = {
+            PRELOADER: 0,
+            STAR_FIELD: 1,
+            ASSEMBLING: 2,
+            IDLE: 3
+        };
+        
+        let currentState = STATE.PRELOADER;
+        let stateStartTime = performance.now();
+        let isPreloaderHidden = false;
+        let cameraAngle = 0;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const currentTime = performance.now();
+            const elapsed = currentTime - stateStartTime;
+
+            // Update uniforms
+            uniforms.uTime.value = (currentTime - stateStartTime) * 0.001;
+
+            // State machine
+            switch (currentState) {
+                case STATE.PRELOADER:
+                    // Hide preloader after 1.5s, then transition to star field
+                    if (elapsed > 1500 && !isPreloaderHidden) {
+                        isPreloaderHidden = true;
+                        document.getElementById('preloader').classList.add('hidden');
+                        document.getElementById('canvas-container').classList.add('ready');
+                    }
+                    
+                    if (elapsed > 2000) {
+                        currentState = STATE.STAR_FIELD;
+                        stateStartTime = currentTime;
+                    }
+                    break;
+
+                case STATE.STAR_FIELD:
+                    // Show rotating star field for 3 seconds
+                    uniforms.uStarFieldTime.value = elapsed * 0.001;
+                    uniforms.uAssembleProgress.value = 0;
+                    
+                    if (elapsed > CONFIG.starFieldDuration) {
+                        currentState = STATE.ASSEMBLING;
+                        stateStartTime = currentTime;
+                    }
+                    break;
+
+                case STATE.ASSEMBLING:
+                    // Assembly animation
+                    const progress = Math.min(elapsed / CONFIG.assemblyDuration, 1);
+                    uniforms.uAssembleProgress.value = progress;
+                    
+                    if (progress >= 1) {
+                        currentState = STATE.IDLE;
+                        stateStartTime = currentTime;
+                    }
+                    break;
+
+                case STATE.IDLE:
+                    // Idle breathing animation
+                    uniforms.uAssembleProgress.value = 1;
+                    break;
+            }
+
+            // Camera orbit
+            cameraAngle += CONFIG.cameraOrbitSpeed * 16;
+            const radius = CONFIG.cameraOrbitRadius;
+            const verticalOffset = Math.sin((currentTime - stateStartTime) * CONFIG.cameraVerticalFrequency) * CONFIG.cameraVerticalAmplitude;
+            
+            camera.position.x = Math.cos(cameraAngle) * radius;
+            camera.position.z = Math.sin(cameraAngle) * radius;
+            camera.position.y = verticalOffset;
+            camera.lookAt(0, 0, 0);
+
+            composer.render();
+        }
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start
+        animate();
+    </script>
+</body>
+</html>
